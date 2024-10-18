@@ -1,0 +1,23 @@
+node_modules
+/.idea
+/.vscode
+dist
+/build
+/coverage
+./test
+.DS_Store
+tmp
+*.log
+/.nx-cache
+/.nx
+/.verdaccio/build/local-registry
+
+# We don't commit a CHANELGELOG.md file to the repo, we only create Github releases
+CHANGELOG.md
+
+# Local dev files
+.env.local
+.bashrc
+.nx
+
+*.node
