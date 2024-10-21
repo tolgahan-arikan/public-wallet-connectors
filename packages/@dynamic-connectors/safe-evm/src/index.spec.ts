@@ -1,11 +1,6 @@
 import { isInIframe } from '@dynamic-labs/utils';
 
-import { SafeEvmWalletConnector, SafeEvmWalletConnectors } from './index';
-
-// mocking since it was causing issues
-jest.mock('@dynamic-labs/embedded-wallet-evm', () => ({
-  TurnkeyEVMWalletConnectors: [],
-}));
+import { SafeEvmWalletConnectors, SafeEvmWalletConnector } from './index';
 
 jest.mock('@dynamic-labs/utils');
 
