@@ -42,7 +42,10 @@ describe('SafeEvmWalletConnector', () => {
       safeAddress: '0x123',
     });
 
-    initializeSafeSpy = jest.spyOn(SafeEvmWalletConnector.prototype as any, 'initializeSafe');
+    initializeSafeSpy = jest.spyOn(
+      SafeEvmWalletConnector.prototype as any,
+      'initializeSafe'
+    );
 
     initializeSafeSpy.mockImplementation(initializeSafeMock);
   });
@@ -129,7 +132,7 @@ describe('SafeEvmWalletConnector', () => {
         safeAddress: undefined,
       }));
 
-     const connector = await createConnector();
+      const connector = await createConnector();
 
       expect(await connector.getAddress()).toBeUndefined();
     });
@@ -151,7 +154,9 @@ describe('SafeEvmWalletConnector', () => {
 
       const setActiveAccountMock = jest
         .spyOn(connector, 'setActiveAccount')
-        .mockImplementation(() => {});
+        .mockImplementation(() => {
+          // Do nothing
+        });
 
       expect(await connector.getConnectedAccounts()).toEqual(['0x123']);
       expect(setActiveAccountMock).toHaveBeenCalledWith('0x123');
