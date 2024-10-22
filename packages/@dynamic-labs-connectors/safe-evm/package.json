@@ -1,5 +1,5 @@
 {
-  "name": "@dynamic-connectors/safe-evm",
+  "name": "@dynamic-labs-connectors/safe-evm",
   "version": "0.0.1",
   "type": "module",
   "main": "./src/index.js",
