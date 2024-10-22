@@ -95,6 +95,7 @@ export class SafeEvmWalletConnector extends EthereumInjectedConnector {
     return safe;
   }
 
+  // switching networks in a safe app does not work
   override supportsNetworkSwitching(): boolean {
     return false;
   }
