@@ -1,6 +1,6 @@
 import { isInIframe } from '@dynamic-labs/utils';
 
-import { SafeEvmWalletConnectors, SafeEvmWalletConnector } from './index';
+import { SafeEvmWalletConnectors, SafeEvmWalletConnector } from './index.js';
 
 jest.mock('@dynamic-labs/utils');
 

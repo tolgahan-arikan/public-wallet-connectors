@@ -1,10 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { SafeAppProvider } from '@safe-global/safe-apps-provider';
 import SafeAppsSDK from '@safe-global/safe-apps-sdk';
 
 import { walletConnectorEvents } from '@dynamic-labs/wallet-connector-core';
 
-import { SafeEvmWalletConnector } from './SafeEvmWalletConnector';
-import { EthWalletConnectorOpts } from '@dynamic-labs/ethereum-core';
+import { SafeEvmWalletConnector } from './SafeEvmWalletConnector.js';
+import { type EthWalletConnectorOpts } from '@dynamic-labs/ethereum-core';
+import { retryableFn } from '@dynamic-labs/utils';
 
 jest.mock('@safe-global/safe-apps-provider');
 jest.mock('@safe-global/safe-apps-sdk');
@@ -18,10 +20,15 @@ jest.mock('@dynamic-labs/wallet-connector-core', () => ({
   },
 }));
 
+jest.mock('@dynamic-labs/utils', () => ({
+  ...jest.requireActual('@dynamic-labs/utils'),
+  retryableFn: jest.fn(),
+}));
+
 const walletConnnectorProps: EthWalletConnectorOpts = {
-  walletBook: {},
+  walletBook: {} as any,
   evmNetworks: [],
-};
+} as any as EthWalletConnectorOpts;
 
 let initializeSafeSpy: jest.SpyInstance;
 const initializeSafeMock = jest.fn();
@@ -41,6 +48,8 @@ describe('SafeEvmWalletConnector', () => {
     initializeSafeMock.mockResolvedValue({
       safeAddress: '0x123',
     });
+
+    (retryableFn as jest.Mock).mockImplementation((fn) => fn());
 
     initializeSafeSpy = jest.spyOn(
       SafeEvmWalletConnector.prototype as any,
@@ -82,16 +91,18 @@ describe('SafeEvmWalletConnector', () => {
   describe('initializeSafe', () => {
     it('should initialize safe', async () => {
       initializeSafeSpy.mockRestore();
-
+      jest.spyOn(global, 'setTimeout').mockImplementationOnce((fn) => fn() as any);
       (SafeAppsSDK.prototype as any).safe = {
         getInfo: jest.fn().mockResolvedValue({ safeAddress: '0x123' }),
       };
-
       const connector = await createConnector();
 
+      // @ts-expect-error - safe is private
       const safe = await connector.initializeSafe();
+      
 
       expect(safe).toEqual({ safeAddress: '0x123' });
+      // @ts-expect-error - safe is private
       expect(connector.triedToConnect).toBe(true);
     });
   });
@@ -177,7 +188,7 @@ describe('SafeEvmWalletConnector', () => {
 
       jest.spyOn(connector, 'getWalletClient').mockReturnValue({
         signMessage: jest.fn().mockResolvedValue('0x123'),
-      });
+      } as any);
 
       (connector as any).safe = {
         safeAddress: '0x123',
