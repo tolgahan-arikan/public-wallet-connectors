@@ -1,13 +1,13 @@
 import { SafeAppProvider } from '@safe-global/safe-apps-provider';
-import SafeAppsSDK, { SafeInfo } from '@safe-global/safe-apps-sdk';
-import { Hex } from 'viem';
+import SafeAppsSDK, { type SafeInfo } from '@safe-global/safe-apps-sdk';
+import { type Hex } from 'viem';
 
 import {
   logger,
   walletConnectorEvents,
 } from '@dynamic-labs/wallet-connector-core';
-import { EthWalletConnectorOpts } from '@dynamic-labs/ethereum-core';
-import { EthereumInjectedConnector, IEthereum } from '@dynamic-labs/ethereum';
+import { type EthWalletConnectorOpts } from '@dynamic-labs/ethereum-core';
+import { EthereumInjectedConnector, type IEthereum } from '@dynamic-labs/ethereum';
 import { findWalletBookWallet } from '@dynamic-labs/wallet-book';
 
 export class SafeEvmWalletConnector extends EthereumInjectedConnector {
@@ -19,7 +19,7 @@ export class SafeEvmWalletConnector extends EthereumInjectedConnector {
 
   // this is injected by the safe app
   // it contains the safe wallet data
-  private safe?: SafeInfo;
+  private safe?: SafeInfo | undefined;
 
   // this is the eip-1193 provider
   private provider?: SafeAppProvider;
@@ -91,6 +91,8 @@ export class SafeEvmWalletConnector extends EthereumInjectedConnector {
       this.sdk.safe.getInfo(),
       new Promise<undefined>((resolve) => setTimeout(resolve, 1000)),
     ]);
+
+    console.log('safe', safe);
 
     return safe;
   }

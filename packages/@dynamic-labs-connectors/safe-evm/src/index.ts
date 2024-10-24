@@ -1,12 +1,12 @@
-import { WalletConnectorConstructor } from '@dynamic-labs/wallet-connector-core';
+import { type WalletConnectorConstructor } from '@dynamic-labs/wallet-connector-core';
 import { isInIframe } from '@dynamic-labs/utils';
 
-import { SafeEvmWalletConnector } from './SafeEvmWalletConnector';
+import { SafeEvmWalletConnector } from './SafeEvmWalletConnector.js';
 
-export * from './SafeEvmWalletConnector';
+export * from './SafeEvmWalletConnector.js';
 
 export const SafeEvmWalletConnectors = (
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- we don't care about the props
   _props: any
 ): WalletConnectorConstructor[] =>
   isInIframe() ? [SafeEvmWalletConnector] : [];
