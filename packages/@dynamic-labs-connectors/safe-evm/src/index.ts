@@ -3,7 +3,7 @@ import { isInIframe } from '@dynamic-labs/utils';
 
 import { SafeEvmWalletConnector } from './SafeEvmWalletConnector.js';
 
-export * from './SafeEvmWalletConnector.js';
+export { SafeEvmWalletConnector } from './SafeEvmWalletConnector.js';
 
 export const SafeEvmWalletConnectors = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- we don't care about the props
