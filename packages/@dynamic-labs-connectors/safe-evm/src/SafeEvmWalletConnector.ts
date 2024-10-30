@@ -1,128 +1,114 @@
-import { SafeAppProvider } from '@safe-global/safe-apps-provider';
-import SafeAppsSDK, { type SafeInfo } from '@safe-global/safe-apps-sdk';
 import { type Hex } from 'viem';
 
-import {
-  logger,
-  walletConnectorEvents,
-} from '@dynamic-labs/wallet-connector-core';
+import { logger } from '@dynamic-labs/wallet-connector-core';
 import { type EthWalletConnectorOpts } from '@dynamic-labs/ethereum-core';
 import { EthereumInjectedConnector, type IEthereum } from '@dynamic-labs/ethereum';
 import { findWalletBookWallet } from '@dynamic-labs/wallet-book';
+import { SafeSdkClient } from './SafeSdkClient.js';
 
 export class SafeEvmWalletConnector extends EthereumInjectedConnector {
-  override name = 'Safe Wallet';
-  override overrideKey = 'safe';
+  /**
+   * The name of the wallet connector
+   * @override Required override from the base connector class
+   */
+  override name = 'Safe';
 
-  // this is what we use to fetch the safe wallet data and initialize the provider
-  private sdk: SafeAppsSDK;
-
-  // this is injected by the safe app
-  // it contains the safe wallet data
-  private safe?: SafeInfo | undefined;
-
-  // this is the eip-1193 provider
-  private provider?: SafeAppProvider;
-
-  private triedToConnect = false;
-  private isInitializing = false;
-
+  /**
+   * The constructor for the connector, with the relevant metadata
+   * @param props The options for the connector
+   */
   constructor(props: EthWalletConnectorOpts) {
-    super(props);
+    super({ ...props, metadata: { id: 'safe' } });
 
     this.wallet = findWalletBookWallet(this.walletBook, this.key);
-    this.sdk = new SafeAppsSDK();
-
-    this.initProvider();
   }
 
-  private async initProvider() {
-    logger.debug('[SafeEvmWalletConnector] initProvider');
-
-    if (this.provider || this.isInitializing) {
+  /**
+   * Initializes the Safe provider and emits the providerReady event
+   * @override Required override from the base connector class
+   */
+  override async init(): Promise<void> {
+    // This method can be called multiple times, but we should only
+    // initialize the provider and emit the providerReady event once
+    if (SafeSdkClient.isInitialized) {
       return;
     }
 
-    this.isInitializing = true;
+    await SafeSdkClient.init();
+    this.onProviderReady();
+  }
 
-    if (!this.safe && !this.triedToConnect) {
-      this.safe = await this.initializeSafe();
-    }
+  private onProviderReady = (): void => {
+    logger.debug('[SafeEvmWalletConnector] onProviderReady');
 
-    // this happens when:
-    //  1. the user is actually in safe but we were unable to load the safe sdk or wallet for some reason
-    //  2. the user is in some other iframe that is not safe
-    if (!this.safe) {
-      logger.debug('[SafeEvmWalletConnector] unable to load safe');
-      return;
-    }
-
-    this.provider = new SafeAppProvider(this.safe, this.sdk);
-
-    this.isInitializing = false;
-
-    logger.debug('[SafeEvmWalletConnector] providerReady');
-    walletConnectorEvents.emit('providerReady', {
+    // Emits the providerReady event so the sdk knows it's available
+    this.walletConnectorEventsEmitter.emit('providerReady', {
       connector: this,
     });
 
+    // Tries to auto connect to the safe wallet
     this.tryAutoConnect();
-  }
+  };
 
-  private tryAutoConnect() {
+  private async tryAutoConnect(): Promise<void> {
+    const safeAddress = await this.getAddress();
+
     logger.debug(
-      '[SafeEvmWalletConnector] trying to auto connect',
-      this.safe?.safeAddress
+      '[SafeEvmWalletConnector] tryAutoConnect - address:',
+      safeAddress,
     );
 
-    if (!this.safe?.safeAddress) {
+    if (!safeAddress) {
+      logger.debug(
+        '[SafeEvmWalletConnector] tryAutoConnect - no address to connect',
+        safeAddress,
+      );
       return;
     }
 
-    walletConnectorEvents.emit('autoConnect', {
+    // If there's an address, emit the autoConnect event
+    this.walletConnectorEventsEmitter.emit('autoConnect', {
       connector: this,
     });
   }
 
-  private async initializeSafe(): Promise<SafeInfo | undefined> {
-    this.triedToConnect = true;
-
-    const safe = await Promise.race([
-      this.sdk.safe.getInfo(),
-      new Promise<undefined>((resolve) => setTimeout(resolve, 1000)),
-    ]);
-
-    console.log('safe', safe);
-
-    return safe;
-  }
-
-  // switching networks in a safe app does not work
+  /**
+   * Returns false because network switching doesn't work inside the safe app
+   */
   override supportsNetworkSwitching(): boolean {
     return false;
   }
 
   override findProvider(): IEthereum | undefined {
-    return this.provider as unknown as IEthereum;
+    return SafeSdkClient.getProvider();
   }
 
+  /**
+   * Returns the address of the connected safe wallet
+   */
   override async getAddress(): Promise<string | undefined> {
-    return this.safe?.safeAddress;
+    return SafeSdkClient.getAddress();
   }
 
+  /**
+   * Returns the connected accounts
+   */
   override async getConnectedAccounts(): Promise<string[]> {
-    if (!this.safe?.safeAddress) {
+    const connectedAccount = await this.getAddress();
+
+    if (!connectedAccount) {
       return [];
     }
 
-    this.setActiveAccount(this.safe.safeAddress as Hex);
+    this.setActiveAccount(connectedAccount as Hex);
 
-    return [this.safe.safeAddress];
+    return [connectedAccount];
   }
 
-  override async signMessage(
-    messageToSign: string
-  ): Promise<string | undefined> {
+  /**
+   * Signs a message
+   */
+  override async signMessage(messageToSign: string): Promise<string | undefined> {
     const client = this.getWalletClient();
 
     if (!client) {
@@ -132,5 +118,13 @@ export class SafeEvmWalletConnector extends EthereumInjectedConnector {
     return client.signMessage({
       message: messageToSign,
     });
+  }
+
+  /**
+   * This will ensure the connector is not added to the available connectors list if the provider
+   * is not ready and it will only be added when the providerReady event is emitted
+   */
+  override filter(): boolean {
+    return Boolean(SafeSdkClient.getProvider());
   }
 }

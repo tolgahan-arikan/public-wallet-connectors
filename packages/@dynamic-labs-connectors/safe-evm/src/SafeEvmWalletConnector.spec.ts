@@ -1,200 +1,133 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { SafeAppProvider } from '@safe-global/safe-apps-provider';
-import SafeAppsSDK from '@safe-global/safe-apps-sdk';
-
-import { walletConnectorEvents } from '@dynamic-labs/wallet-connector-core';
-
-import { SafeEvmWalletConnector } from './SafeEvmWalletConnector.js';
 import { type EthWalletConnectorOpts } from '@dynamic-labs/ethereum-core';
-import { retryableFn } from '@dynamic-labs/utils';
+import { SafeEvmWalletConnector } from './SafeEvmWalletConnector.js';
+import { SafeSdkClient } from './SafeSdkClient.js';
 
-jest.mock('@safe-global/safe-apps-provider');
-jest.mock('@safe-global/safe-apps-sdk');
+jest.mock('./SafeSdkClient.js');
 jest.mock('@dynamic-labs/wallet-connector-core', () => ({
   ...jest.requireActual('@dynamic-labs/wallet-connector-core'),
-  walletConnectorEvents: {
-    emit: jest.fn(),
-  },
   logger: {
     debug: jest.fn(),
   },
 }));
 
-jest.mock('@dynamic-labs/utils', () => ({
-  ...jest.requireActual('@dynamic-labs/utils'),
-  retryableFn: jest.fn(),
-}));
-
-const walletConnnectorProps: EthWalletConnectorOpts = {
+const walletConnectorProps: EthWalletConnectorOpts = {
   walletBook: {} as any,
   evmNetworks: [],
 } as any as EthWalletConnectorOpts;
 
-let initializeSafeSpy: jest.SpyInstance;
-const initializeSafeMock = jest.fn();
-
-const createConnector = async () => {
-  const connector = new SafeEvmWalletConnector(walletConnnectorProps);
-
-  await initializeSafeMock();
-
-  return connector;
-};
-
 describe('SafeEvmWalletConnector', () => {
+  let connector: SafeEvmWalletConnector;
+  let emitSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    connector = new SafeEvmWalletConnector(walletConnectorProps);
+    emitSpy = jest.spyOn(connector.walletConnectorEventsEmitter, 'emit');
 
-    initializeSafeMock.mockResolvedValue({
-      safeAddress: '0x123',
-    });
-
-    (retryableFn as jest.Mock).mockImplementation((fn) => fn());
-
-    initializeSafeSpy = jest.spyOn(
-      SafeEvmWalletConnector.prototype as any,
-      'initializeSafe'
-    );
-
-    initializeSafeSpy.mockImplementation(initializeSafeMock);
+    (SafeSdkClient.getAddress as jest.Mock).mockResolvedValue('0x123');
+    (SafeSdkClient.isInitialized as any) = false;
   });
 
-  it('should initialize with correct name and overrideKey', async () => {
-    const connector = await createConnector();
-
-    expect(connector.name).toBe('Safe Wallet');
-    expect(connector.overrideKey).toBe('safe');
+  it('should initialize with correct name', () => {
+    expect(connector.name).toBe('Safe');
   });
 
-  describe('initProvider', () => {
+  describe('init', () => {
     it('should initialize provider and emit events if in Safe app', async () => {
-      const connector = await createConnector();
+      await connector.init();
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-      expect(walletConnectorEvents.emit).toHaveBeenCalledWith('providerReady', {
-        connector,
-      });
-      expect(walletConnectorEvents.emit).toHaveBeenCalledWith('autoConnect', {
-        connector,
-      });
+      expect(SafeSdkClient.init).toHaveBeenCalled();
+      expect(emitSpy).toHaveBeenCalledWith('providerReady', { connector });
+      expect(emitSpy).toHaveBeenCalledWith('autoConnect', { connector });
     });
 
-    it('should not initialize provider if not in Safe app', async () => {
-      initializeSafeMock.mockResolvedValue(undefined);
+    it('should not initialize provider if already initialized', async () => {
+      (SafeSdkClient.isInitialized as any) = true;
+      await connector.init();
 
-      await createConnector();
-
-      expect(SafeAppProvider).not.toHaveBeenCalled();
-      expect(walletConnectorEvents.emit).not.toHaveBeenCalled();
+      expect(SafeSdkClient.init).not.toHaveBeenCalled();
+      expect(emitSpy).not.toHaveBeenCalled();
     });
-  });
 
-  describe('initializeSafe', () => {
-    it('should initialize safe', async () => {
-      initializeSafeSpy.mockRestore();
-      jest.spyOn(global, 'setTimeout').mockImplementationOnce((fn) => fn() as any);
-      (SafeAppsSDK.prototype as any).safe = {
-        getInfo: jest.fn().mockResolvedValue({ safeAddress: '0x123' }),
-      };
-      const connector = await createConnector();
+    it('should not emit autoConnect if no safe address', async () => {
+      (SafeSdkClient.getAddress as jest.Mock).mockResolvedValue(undefined);
+      await connector.init();
 
-      // @ts-expect-error - safe is private
-      const safe = await connector.initializeSafe();
-      
-
-      expect(safe).toEqual({ safeAddress: '0x123' });
-      // @ts-expect-error - safe is private
-      expect(connector.triedToConnect).toBe(true);
+      expect(emitSpy).not.toHaveBeenCalledWith('autoConnect', expect.any(Object));
     });
   });
 
   describe('supportsNetworkSwitching', () => {
-    it('should return false', async () => {
-      const connector = await createConnector();
-
+    it('should return false', () => {
       expect(connector.supportsNetworkSwitching()).toBe(false);
     });
   });
 
   describe('findProvider', () => {
-    it('should return the provider if initialized', async () => {
-      const connector = await createConnector();
+    it('should return the provider from SafeSdkClient', () => {
+      const mockProvider = {} as any;
+      (SafeSdkClient.getProvider as jest.Mock).mockReturnValue(mockProvider);
 
-      expect(connector.findProvider()).toBeDefined();
-    });
-
-    it('should return undefined if provider is not initialized', async () => {
-      initializeSafeMock.mockImplementation(() => undefined);
-
-      const connector = await createConnector();
-
-      expect(connector.findProvider()).toBeUndefined();
+      expect(connector.findProvider()).toBe(mockProvider);
     });
   });
 
   describe('getAddress', () => {
     it('should return the safe address if available', async () => {
-      const connector = await createConnector();
-
       expect(await connector.getAddress()).toBe('0x123');
     });
 
-    it('should return undefined if safe address is not available', async () => {
-      initializeSafeMock.mockImplementation(() => ({
-        safeAddress: undefined,
-      }));
-
-      const connector = await createConnector();
-
+    it('should return undefined if safe info is not available', async () => {
+      (SafeSdkClient.getAddress as jest.Mock).mockResolvedValue(undefined);
       expect(await connector.getAddress()).toBeUndefined();
     });
   });
 
   describe('getConnectedAccounts', () => {
     it('should return an empty array if no safe address is available', async () => {
-      initializeSafeMock.mockImplementation(() => ({
-        safeAddress: undefined,
-      }));
-
-      const connector = await createConnector();
-
+      (SafeSdkClient.getAddress as jest.Mock).mockResolvedValue(undefined);
       expect(await connector.getConnectedAccounts()).toEqual([]);
     });
 
-    it('should return the connected accounts', async () => {
-      const connector = await createConnector();
-
-      const setActiveAccountMock = jest
+    it('should return the connected accounts and set active account', async () => {
+      const setActiveAccountSpy = jest
         .spyOn(connector, 'setActiveAccount')
-        .mockImplementation(() => {
-          // Do nothing
-        });
+        .mockImplementation(() => undefined);
 
-      expect(await connector.getConnectedAccounts()).toEqual(['0x123']);
-      expect(setActiveAccountMock).toHaveBeenCalledWith('0x123');
+      const accounts = await connector.getConnectedAccounts();
+
+      expect(accounts).toEqual(['0x123']);
+      expect(setActiveAccountSpy).toHaveBeenCalledWith('0x123');
     });
   });
 
   describe('signMessage', () => {
     it('should return undefined if no client is found', async () => {
-      const connector = await createConnector();
-
       jest.spyOn(connector, 'getWalletClient').mockReturnValue(undefined);
 
       expect(await connector.signMessage('Hello, world!')).toBeUndefined();
     });
 
     it('should return the signed message', async () => {
-      const connector = await createConnector();
-
       jest.spyOn(connector, 'getWalletClient').mockReturnValue({
         signMessage: jest.fn().mockResolvedValue('0x123'),
       } as any);
 
-      (connector as any).safe = {
-        safeAddress: '0x123',
-      };
-
       expect(await connector.signMessage('Hello, world!')).toBe('0x123');
+    });
+  });
+
+  describe('filter', () => {
+    it('should return true if provider is available', () => {
+      (SafeSdkClient.getProvider as jest.Mock).mockReturnValue({});
+      expect(connector.filter()).toBe(true);
+    });
+
+    it('should return false if provider is not available', () => {
+      (SafeSdkClient.getProvider as jest.Mock).mockReturnValue(undefined);
+      expect(connector.filter()).toBe(false);
     });
   });
 });
