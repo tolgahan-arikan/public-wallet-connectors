@@ -1,0 +1,59 @@
+name: Bump Versions
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch for which you wish to bump and publish
+        default: main
+      preId:
+        description: The prerelease name (Only required if using a bump starting with `pre`)
+        default: alpha
+      bump:
+        description: Increment a version by the specified level
+        type: choice
+        default: prerelease
+        options:
+          - major
+          - minor
+          - patch
+          - premajor
+          - preminor
+          - prepatch
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    environment: release
+    env:
+      ACTIONS_RUNNER_DEBUG: true
+    steps:
+      - name: Checkout ${{ github.event.inputs.branch }}
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
+      - name: Bump Versions
+        env:
+          ACTIONS_RUNNER_DEBUG: true
+        uses: dynamic-labs/dynamic-auth/.github/actions/bump-version@main
+        id: bumpversion
+        with:
+          bump: ${{ github.event.inputs.bump }}
+          preId: ${{ github.event.inputs.preId }}
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.DYNAMIC_CI_PAT }}
+          base: ${{ github.event.inputs.branch }}
+          commit-message: |
+            chore(bump-version): bump package versions [skip ci]
+          branch: github-bot/bump-version
+          delete-branch: true
+          title: |
+            chore(bump-version): bump package versions
+          body: ""
+
