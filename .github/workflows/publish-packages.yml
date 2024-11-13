@@ -6,10 +6,6 @@ on:
       ref:
         description: Branch or commit to publish. The ref must be a chore(release) commit
         default: main
-  push:
-    branches:
-      - main
-      - v*
 
 jobs:
   publish:
