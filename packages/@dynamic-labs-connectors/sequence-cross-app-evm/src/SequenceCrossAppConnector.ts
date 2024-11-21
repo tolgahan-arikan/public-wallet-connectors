@@ -16,24 +16,14 @@ export type CrossAppTransportConfig = {
 };
 
 export class SequenceCrossAppConnector extends EthereumInjectedConnector {
-  private walletName: string;
-
-  private nodesUrl = 'https://nodes.sequence.app';
-
+  private readonly nodesUrl = 'https://nodes.sequence.app';
+  private readonly walletName: string;
   sequenceWaasTransportProvider: SequenceWaasTransportProvider;
 
-  /**
-   * The name of the wallet connector
-   * @override Required override from the base connector class
-   */
   override get name() {
     return this.walletName;
   }
 
-  /**
-   * The constructor for the connector, with the relevant metadata
-   * @param props The options for the connector
-   */
   constructor(
     props: EthereumWalletConnectorOpts & {
       transportConfig: CrossAppTransportConfig;
@@ -45,9 +35,7 @@ export class SequenceCrossAppConnector extends EthereumInjectedConnector {
       throw new Error('Metadata prop id is required');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    this.walletName = props.metadata!.id;
-
+    this.walletName = props.metadata.id;
     this.sequenceWaasTransportProvider = new SequenceWaasTransportProvider(
       props.transportConfig.projectAccessKey,
       props.transportConfig.walletUrl,
