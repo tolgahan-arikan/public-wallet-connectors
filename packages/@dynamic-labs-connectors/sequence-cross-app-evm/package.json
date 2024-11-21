@@ -1,0 +1,27 @@
+{
+  "name": "@dynamic-labs-connectors/sequence-cross-app-evm",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./src/index.js",
+  "typings": "./src/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@0xsequence/network": "^2.0.26",
+    "ethers": "^6.13.4"
+  },
+  "peerDependencies": {
+    "@dynamic-labs/ethereum": "^3.6.3",
+    "@dynamic-labs/ethereum-core": "^3.6.3",
+    "@dynamic-labs/sdk-react-core": "^3.6.3",
+    "@dynamic-labs/wallet-book": "^3.6.3",
+    "@dynamic-labs/wallet-connector-core": "^3.6.3",
+    "viem": "^2.21.45"
+  },  
+  "devDependencies": {
+    "@dynamic-labs/utils": "^3.6.3"
+  }
+}
