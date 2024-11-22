@@ -22,13 +22,12 @@
   "peerDependencies": {
     "@dynamic-labs/ethereum": "^3.6.3",
     "@dynamic-labs/ethereum-core": "^3.6.3",
-    "@dynamic-labs/sdk-react-core": "^3.6.3",
+    "@dynamic-labs/utils": "^3.6.3",
     "@dynamic-labs/wallet-book": "^3.6.3",
     "@dynamic-labs/wallet-connector-core": "^3.6.3",
     "viem": "^2.21.45"
   },
   "devDependencies": {
-    "@dynamic-labs/utils": "^3.6.3",
     "@swc/core": "^1.3.96",
     "@swc/jest": "^0.2.29",
     "@types/jest": "^29.5.5",

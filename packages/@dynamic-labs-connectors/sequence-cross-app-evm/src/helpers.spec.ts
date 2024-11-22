@@ -116,6 +116,8 @@ describe('createSequenceCrossAppConnector', () => {
       mockProps.walletBook,
       'testwallet',
     );
-    expect((connector as any).wallet).toBe(mockWalletInfo);
+    expect((connector as SequenceCrossAppConnector).wallet).toBe(
+      mockWalletInfo,
+    );
   });
 });
