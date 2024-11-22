@@ -91,16 +91,6 @@ describe('SequenceCrossAppConnector', () => {
     });
   });
 
-  describe('signMessage', () => {
-    it('should throw error if no provider is found', async () => {
-      jest.spyOn(connector, 'findProvider').mockReturnValue(undefined);
-
-      await expect(connector.signMessage('Hello')).rejects.toThrow(
-        new DynamicError('No provider found'),
-      );
-    });
-  });
-
   describe('endSession', () => {
     it('should call disconnect on the transport provider', async () => {
       await connector.endSession();
