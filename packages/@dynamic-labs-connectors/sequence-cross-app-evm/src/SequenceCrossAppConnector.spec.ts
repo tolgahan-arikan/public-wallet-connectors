@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { type EthereumWalletConnectorOpts } from '@dynamic-labs/ethereum-core';
-import { DynamicError } from '@dynamic-labs/utils';
 import { SequenceCrossAppConnector } from './SequenceCrossAppConnector.js';
 import { SequenceWaasTransportProvider } from './SequenceWaasTransportProvider.js';
 
