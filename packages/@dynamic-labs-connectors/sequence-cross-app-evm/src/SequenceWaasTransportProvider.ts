@@ -1,17 +1,26 @@
-import { ethers } from 'ethers';
 import { allNetworks, type EIP1193Provider } from '@0xsequence/network';
-import { getAddress, TransactionRejectedRpcError } from 'viem';
+import {
+  createPublicClient,
+  getAddress,
+  TransactionRejectedRpcError,
+  type PublicClient,
+  toHex,
+  type Hash,
+  type Transaction,
+  http,
+  type Client,
+} from 'viem';
 
 import { ProviderTransport } from './ProviderTransport.js';
 import { normalizeChainId } from './utils.js';
 
-export class SequenceWaasTransportProvider
-  extends ethers.AbstractProvider
-  implements EIP1193Provider
-{
-  jsonRpcProvider: ethers.JsonRpcProvider;
-  currentNetwork: ethers.Network;
+type WalletSwitchEthereumChainParameter = {
+  chainId: string;
+};
 
+export class SequenceWaasTransportProvider implements EIP1193Provider {
+  publicClient: PublicClient;
+  currentChainId: number;
   transport: ProviderTransport;
 
   constructor(
@@ -20,22 +29,25 @@ export class SequenceWaasTransportProvider
     public initialChainId: number,
     public nodesUrl: string,
   ) {
-    super(initialChainId);
-
     const initialChainName = allNetworks.find(
       (n) => n.chainId === initialChainId,
     )?.name;
-    const initialJsonRpcProvider = new ethers.JsonRpcProvider(
-      `${nodesUrl}/${initialChainName}/${projectAccessKey}`,
-    );
+
+    this.publicClient = createPublicClient({
+      transport: http(`${nodesUrl}/${initialChainName}/${projectAccessKey}`),
+    });
 
     this.transport = new ProviderTransport(walletUrl);
-    this.jsonRpcProvider = initialJsonRpcProvider;
-    this.currentNetwork = ethers.Network.from(initialChainId);
+    this.currentChainId = initialChainId;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async request({ method, params }: { method: string; params?: any[] }) {
+  async request({
+    method,
+    params,
+  }: {
+    method: string;
+    params?: readonly unknown[];
+  }) {
     if (method === 'eth_requestAccounts') {
       let walletAddress = this.transport.getWalletAddress();
       if (!walletAddress) {
@@ -52,21 +64,22 @@ export class SequenceWaasTransportProvider
     }
 
     if (method === 'wallet_switchEthereumChain') {
-      const chainId = normalizeChainId(params?.[0].chainId);
-
+      const param = params?.[0] as WalletSwitchEthereumChainParameter;
+      const chainId = normalizeChainId(param.chainId);
       const networkName = allNetworks.find((n) => n.chainId === chainId)?.name;
-      const jsonRpcProvider = new ethers.JsonRpcProvider(
-        `${this.nodesUrl}/${networkName}/${this.projectAccessKey}`,
-      );
 
-      this.jsonRpcProvider = jsonRpcProvider;
-      this.currentNetwork = ethers.Network.from(chainId);
+      this.publicClient = createPublicClient({
+        transport: http(
+          `${this.nodesUrl}/${networkName}/${this.projectAccessKey}`,
+        ),
+      });
+      this.currentChainId = chainId;
 
       return null;
     }
 
     if (method === 'eth_chainId') {
-      return ethers.toQuantity(this.currentNetwork.chainId);
+      return toHex(this.currentChainId);
     }
 
     if (method === 'eth_accounts') {
@@ -86,19 +99,17 @@ export class SequenceWaasTransportProvider
       try {
         const response = await this.transport.sendRequest(
           method,
-          params,
+          Array.from(params),
           this.getChainId(),
         );
 
         if (response.code === 'transactionFailed') {
-          // Failed
           throw new TransactionRejectedRpcError(
             new Error(`Unable to send transaction: ${response.data.error}`),
           );
         }
 
         if (response.code === 'transactionReceipt') {
-          // Success
           const { txHash } = response.data;
           return txHash;
         }
@@ -122,7 +133,7 @@ export class SequenceWaasTransportProvider
       try {
         const response = await this.transport.sendRequest(
           method,
-          params,
+          Array.from(params),
           this.getChainId(),
         );
 
@@ -135,19 +146,22 @@ export class SequenceWaasTransportProvider
       }
     }
 
-    return await this.jsonRpcProvider.send(method, params ?? []);
+    // For all other RPC methods, forward to the public client
+    // We use type assertions here because we're implementing the more general EIP1193Provider
+    // interface while viem's PublicClient has stricter typing. The actual RPC call will
+    // validate the parameters at runtime.
+    return await this.publicClient.request({
+      method: method as keyof Client['transport']['request'],
+      params: params as Parameters<PublicClient['request']>[0]['params'],
+    });
   }
 
-  override async getTransaction(txHash: string) {
-    return await this.jsonRpcProvider.getTransaction(txHash);
-  }
-
-  detectNetwork(): Promise<ethers.Network> {
-    return Promise.resolve(this.currentNetwork);
+  async getTransaction(txHash: Hash): Promise<Transaction | null> {
+    return await this.publicClient.getTransaction({ hash: txHash });
   }
 
   getChainId() {
-    return Number(this.currentNetwork.chainId);
+    return this.currentChainId;
   }
 
   disconnect() {
