@@ -16,8 +16,7 @@
     }
   },
   "dependencies": {
-    "@0xsequence/network": "^2.0.26",
-    "ethers": "^6.13.4"
+    "@0xsequence/network": "^2.0.26"
   },
   "peerDependencies": {
     "@dynamic-labs/ethereum": "^3.6.3",
